@@ -1,0 +1,8 @@
+#Directory to scan use.Please "/" to separate the dir
+scn.dir=C:/Users/rreyles/Downloads
+
+# Files to look for Comma separated
+scn.file.list=20150518.pdf,swagger-editor-master.zip
+
+# Directory to store the located file.Please "/" to separate the dir
+scn.store.dir=C:/Users/rreyles/Desktop/tmp
