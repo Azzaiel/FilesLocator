@@ -10,6 +10,7 @@ import java.io.OutputStream;
 
 import net.virtela.constants.Constant;
 import net.virtela.util.CommonHelper;
+import net.virtela.util.LogWriter;
 
 /**
  * 
@@ -18,19 +19,21 @@ import net.virtela.util.CommonHelper;
  */
 public class Runner {
 
-	private final static String[] fileSreachArray = CommonHelper.readConfig(Constant.KEY_SCAN_FILES)
-			.split(Constant.COMMA);
+	private final static String[] fileSreachArray = CommonHelper.readConfig(Constant.KEY_SCAN_FILES).split(Constant.COMMA);
 	private static File rootScnDir = null;
+	private static LogWriter logWritter = null;
 
 	public static void main(String[] args) {
 		System.out.println("Files Locator has started.....");
 		if (isConfigValid()) {
 			System.out.println("Starting scan.....");
+			
+			logWritter = new LogWriter(CommonHelper.readConfig(Constant.KEY_SCN_STORE));
 			rootScnDir = new File(CommonHelper.readConfig(Constant.KEY_SCAN_DIR));
+			
 			int filesFound = searchAndStore(rootScnDir);
 			if (filesFound > 0) {
-				System.out.println("Total of " + filesFound + " File(s) was found and is stored in: "
-						+ CommonHelper.readConfig(Constant.KEY_SCN_STORE));
+				System.out.println("Total of " + filesFound + " File(s) was found and is stored in: " + CommonHelper.readConfig(Constant.KEY_SCN_STORE));
 			} else {
 				System.out.println("No thing was found.");
 			}
@@ -42,7 +45,7 @@ public class Runner {
 		int filesFound = 0;
 		if (dir != null) {
 			System.out.println("Scanning on direcotry: " + dir.getName());
-			if ( dir.listFiles() == null) {
+			if (dir.listFiles() == null) {
 				return 0;
 			}
 			for (File scanFile : dir.listFiles()) {
@@ -52,6 +55,7 @@ public class Runner {
 					} else if (isFileAMatch(scanFile)) {
 						try {
 							storeFile(scanFile);
+							logWritter.addLog(scanFile.getPath());
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -114,8 +118,7 @@ public class Runner {
 		if (scnDir.exists() && scnDir.isDirectory() && scnDir.canRead()) {
 			System.out.println("Directory to search: " + CommonHelper.readConfig(Constant.KEY_SCAN_DIR));
 		} else {
-			System.out.println(
-					"Search Directory is invalid (Not existing, not a directory or has no read access)... Exiting program.");
+			System.out.println("Search Directory is invalid (Not existing, not a directory or has no read access)... Exiting program.");
 			return false;
 		}
 
@@ -123,8 +126,7 @@ public class Runner {
 		if (storeDir.exists() && storeDir.isDirectory() && storeDir.canWrite()) {
 			System.out.println("Directory to store located files: " + CommonHelper.readConfig(Constant.KEY_SCN_STORE));
 		} else {
-			System.out.println(
-					"Store Directory is invalid (Not existing, not a directory or has no write access)... Exiting program.");
+			System.out.println("Store Directory is invalid (Not existing, not a directory or has no write access)... Exiting program.");
 			return false;
 		}
 
