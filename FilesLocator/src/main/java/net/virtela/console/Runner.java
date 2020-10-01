@@ -37,13 +37,14 @@ import net.virtela.util.LogWriter;
 public class Runner {
 
 	private final static String[] fileSreachArray = CommonHelper.readConfig(Constant.KEY_SCAN_FILES).split(Constant.COMMA);
+	private static final boolean FileDir = false;
 	private static File rootScnDir = null;
 	private static LogWriter logWritter = null;
 	
 	static ForkJoinPool parentPool = new ForkJoinPool(10);
 	static ForkJoinPool childPool = new ForkJoinPool(20);
 
-	public static void main(String[] args) throws ServiceException {
+	public static void main(String[] args) throws ServiceException, CloneNotSupportedException {
 		System.out.println("Files Locator has started.....");
 		if (isConfigValid()) {
 			System.out.println("Starting scan.....");
@@ -91,7 +92,15 @@ public class Runner {
 		}
 	}
 	
-	private static void exportToExcel(List<FileDir> fileDirList) throws ServiceException {
+	private static Integer rowIndex = 1;
+	private static Integer colIndex = 0;
+	
+	private static void exportToExcel(List<FileDir> fileDirList) throws ServiceException, CloneNotSupportedException {
+		
+		System.out.println("--------------------------------------------------------------------------------------");
+		System.out.println("====================================Export============================================");
+		System.out.println("--------------------------------------------------------------------------------------");
+		
 		final String tempalte = "/opt/templates/FileCrawler.xlsx";
 		final String sheetName = "Data";
 		
@@ -105,8 +114,71 @@ public class Runner {
 		
 		final Workbook workBook = FormCreator.getExistingWorkBook(tempalte);
 		final Sheet formSheet = workBook.getSheet(sheetName);
-		//TODO: papulate data
+		
+		for (FileDir parentDir : fileDirList) {
+			final List<FileDir> expandedList = new ArrayList<>();
+			expandedList.addAll(expandList(parentDir));
+			for (FileDir expnad : expandedList) {
+			   System.out.println(getDirCrawl(expnad));
+			}
+			printToExcel(expandedList, formSheet);
+		}
+	
+	
 		FormCreator.saveWorkBook(workBook, savePath.toString());
+	}
+	
+	private static String getDirCrawl(FileDir fileDir) {
+		StringBuilder out = new StringBuilder();
+		out.append(fileDir.getFileName());
+		if (fileDir.getChild() != null) {
+			out.append(" - ");
+			out.append(getDirCrawl(fileDir.getChild()));
+		}
+		return out.toString();
+	}
+	
+	private static List<FileDir> expandList(FileDir parentDir) throws CloneNotSupportedException {
+		final List<FileDir> fileDirList = new ArrayList<>();
+		if (parentDir.getChildList() != null) {
+			for (FileDir childDir : parentDir.getChildList()) {
+				 FileDir expand = new FileDir(parentDir.getFileName());
+				 final List<FileDir> ccList = expandList(childDir);
+				 for (FileDir ccDir : ccList) {
+					 FileDir expandClone =  (FileDir) expand.clone();
+					 expandClone.setChild(ccDir);
+					 fileDirList.add(expandClone);
+				 }
+			}
+		} else {
+			fileDirList.add(new FileDir(parentDir.getFileName()));
+		}
+		return fileDirList;
+	}
+	
+	
+	private static void printToExcel(List<FileDir> fileDirList, Sheet formSheet) {
+		for (FileDir fileDir : fileDirList ) {
+			FormCreator.setCellValue(formSheet, fileDir.getFileName(), rowIndex, colIndex);
+			colIndex++;
+			if (fileDir.getChild() != null) {
+				printChildDir(fileDir.getChild(), formSheet);
+			} else {
+				rowIndex = rowIndex + 1;
+				colIndex = 0;
+			}
+		}
+	}
+	
+	private static void printChildDir(FileDir childDir, Sheet formSheet) {
+		FormCreator.setCellValue(formSheet, childDir.getFileName(), rowIndex, colIndex);
+		colIndex++;
+		if (childDir.getChild() != null) {
+			printChildDir(childDir.getChild(), formSheet);
+		} else {
+			rowIndex = rowIndex + 1;
+			colIndex = 0;
+		}
 	}
 	
 	private static void printDir(FileDir fileDir) {
