@@ -120,5 +120,35 @@ public class CommonHelper {
 			}
 		}
 	}
+	
+	/**
+	 * 
+	 * 
+	 * @param filePath
+	 * @return file extension
+	 */
+	public static String getFileExtension(String filePath) {
+		if (hasValidValue(filePath)) {
+			final String fileName = filePath.trim();
+			final int mid = fileName.lastIndexOf(".");
+			return getStringValue(fileName.substring(mid + 1, fileName.length())).toLowerCase();
+		}
+		return Constant.EMPTY_STRING;
+	}
+	
+	public static String getStringValue(Object objStr) {
+		if (hasValidValue(objStr)) {
+			if (objStr.getClass() == Double.class) {
+				return ((Double) objStr).longValue() + Constant.EMPTY_STRING;
+			}
+			return objStr.toString().trim();
+		}
+		return Constant.EMPTY_STRING;
+	}
+	
+	public static boolean hasLineBreaks(String data) {
+		return data.contains("\n") || data.contains("\r");
+	}
+
 
 }
