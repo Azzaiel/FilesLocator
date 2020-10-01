@@ -7,8 +7,19 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
+import java.util.stream.Collectors;
 
 import net.virtela.constants.Constant;
+import net.virtela.model.FileDir;
 import net.virtela.util.CommonHelper;
 import net.virtela.util.LogWriter;
 
@@ -22,49 +33,118 @@ public class Runner {
 	private final static String[] fileSreachArray = CommonHelper.readConfig(Constant.KEY_SCAN_FILES).split(Constant.COMMA);
 	private static File rootScnDir = null;
 	private static LogWriter logWritter = null;
+	
+	static ForkJoinPool parentPool = new ForkJoinPool(10);
+	static ForkJoinPool childPool = new ForkJoinPool(20);
 
 	public static void main(String[] args) {
 		System.out.println("Files Locator has started.....");
 		if (isConfigValid()) {
 			System.out.println("Starting scan.....");
-			
 			logWritter = new LogWriter(CommonHelper.readConfig(Constant.KEY_SCN_STORE));
 			rootScnDir = new File(CommonHelper.readConfig(Constant.KEY_SCAN_DIR));
 			
-			int filesFound = searchAndStore(rootScnDir);
-			if (filesFound > 0) {
-				System.out.println("Total of " + filesFound + " File(s) was found and is stored in: " + CommonHelper.readConfig(Constant.KEY_SCN_STORE));
+			final Path parentPath = Paths.get(CommonHelper.readConfig(Constant.KEY_SCAN_DIR));
+			
+			
+			
+			if (parentPath != null && Files.isDirectory(parentPath)) {
+				System.out.println("Scanning on direcotry: " + parentPath.getFileName());
+				
+				final List<Callable<List<FileDir>>> callFileDirList = new ArrayList<>();
+				Arrays.asList(parentPath.toFile()
+		                                .listFiles())
+				                        .forEach(file -> {
+				                        	callFileDirList.add(() -> {
+				                				return locateFile(file);
+				                			});
+				                        });
+				
+				final List<FileDir> fileDirList = callFileDirList.parallelStream()
+						                                         .map(parentPool::submit)
+						                                         .map(ForkJoinTask::join)
+						                                         .flatMap(List::stream)
+						                                         .collect(Collectors.toList());
+				System.out.println("Done scanning!");
+				System.out.println("--------------------------------------------------------------------------------------");
+				System.out.println("====================================Result============================================");
+				System.out.println("--------------------------------------------------------------------------------------");
+				
+				fileDirList.forEach(rec -> {
+					printDir(rec);
+				});
+				
 			} else {
-				System.out.println("No thing was found.");
+				System.out.println("Main Directory is invalid... Exiting program");
 			}
+			
+			parentPool.shutdown();
+			childPool.shutdown();
+			
+			
+		}
+	}
+	
+	private static void printDir(FileDir fileDir) {
+		printDir(fileDir, 0);
+	}
 
+	private static void printDir(FileDir fileDir, int tabCount) {
+		final StringBuilder printOut = new StringBuilder();
+		for (int index = 1 ; index <= tabCount; index++) {
+			printOut.append("-");
+		}
+		if(tabCount > 0) {
+			printOut.append("►");
+		}
+		printOut.append(fileDir.getFileName());
+		System.out.println(printOut.toString());
+		if (fileDir.getChildList() != null) {
+			fileDir.getChildList().forEach(rec -> {
+				printDir(rec, tabCount + 1);
+			});
 		}
 	}
 
-	private static int searchAndStore(File dir) {
-		int filesFound = 0;
-		if (dir != null) {
-			System.out.println("Scanning on direcotry: " + dir.getName());
-			if (dir.listFiles() == null) {
-				return 0;
-			}
-			for (File scanFile : dir.listFiles()) {
-				if (scanFile != null) {
-					if (scanFile.isDirectory()) {
-						filesFound += searchAndStore(scanFile);
-					} else if (isFileAMatch(scanFile)) {
-						try {
-							storeFile(scanFile);
-							logWritter.addLog(scanFile.getPath());
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-						filesFound += 1;
-					}
-				}
+	private static List<FileDir> locateFile(File inFile) {
+		final List<FileDir> fileDirList = new ArrayList<>();
+		if (inFile != null) {
+			FileDir parentFileDir = new FileDir(inFile.getName());
+			if (inFile.isFile()) {
+//				checkFile(inFile);
+				fileDirList.add(parentFileDir);
+				return fileDirList;
+			} 
+			System.out.println("Scanning on direcotry: " + inFile.getName());
+			final List<Callable<List<FileDir>>> callFileDirList = new ArrayList<>();
+			final List<File> fileList =  Arrays.asList(inFile.listFiles());
+			fileList.forEach(file -> {
+			                           callFileDirList.add(() -> {
+			                		      return locateFile(file);
+			                		   });
+			                         });
+
+			final List<FileDir> childDirList = callFileDirList.parallelStream()
+					                                          .map(childPool::submit)
+					                                          .map(ForkJoinTask::join)
+					                                          .flatMap(List::stream)
+					                                          .collect(Collectors.toList());
+			parentFileDir.setChildList(childDirList);
+			fileDirList.add(parentFileDir);
+		}
+		return fileDirList;
+	}
+	
+	private static FileDir checkFile(File file) {
+		if (isFileAMatch(file)) {
+			try {
+				storeFile(file);
+				logWritter.addLog(file.getPath());
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
 		}
-		return filesFound;
+		return null;
 	}
 
 	private static boolean isFileAMatch(File file) {
