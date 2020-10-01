@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -18,8 +19,13 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.stream.Collectors;
 
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+
 import net.virtela.constants.Constant;
 import net.virtela.model.FileDir;
+import net.virtela.model.exception.ServiceException;
+import net.virtela.poi.export.FormCreator;
 import net.virtela.util.CommonHelper;
 import net.virtela.util.LogWriter;
 
@@ -37,7 +43,7 @@ public class Runner {
 	static ForkJoinPool parentPool = new ForkJoinPool(10);
 	static ForkJoinPool childPool = new ForkJoinPool(20);
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws ServiceException {
 		System.out.println("Files Locator has started.....");
 		if (isConfigValid()) {
 			System.out.println("Starting scan.....");
@@ -73,7 +79,7 @@ public class Runner {
 				fileDirList.forEach(rec -> {
 					printDir(rec);
 				});
-				
+				exportToExcel(fileDirList);
 			} else {
 				System.out.println("Main Directory is invalid... Exiting program");
 			}
@@ -83,6 +89,24 @@ public class Runner {
 			
 			
 		}
+	}
+	
+	private static void exportToExcel(List<FileDir> fileDirList) throws ServiceException {
+		final String tempalte = "/opt/templates/FileCrawler.xlsx";
+		final String sheetName = "Data";
+		
+		final StringBuilder savePath = new StringBuilder();
+		savePath.append(CommonHelper.readConfig(Constant.KEY_SCN_STORE));
+		savePath.append(Constant.SLASH);
+		savePath.append(Instant.now().toEpochMilli());
+		savePath.append(Constant.DOT);
+		savePath.append(Constant.FILE_TYPE_XLSX);
+		
+		
+		final Workbook workBook = FormCreator.getExistingWorkBook(tempalte);
+		final Sheet formSheet = workBook.getSheet(sheetName);
+		//TODO: papulate data
+		FormCreator.saveWorkBook(workBook, savePath.toString());
 	}
 	
 	private static void printDir(FileDir fileDir) {

@@ -149,6 +149,27 @@ public class CommonHelper {
 	public static boolean hasLineBreaks(String data) {
 		return data.contains("\n") || data.contains("\r");
 	}
-
+	
+	/**
+	 * Case-insensitive Matching
+	 * 
+	 * @param valueOne
+	 * @param valueTwo
+	 * @return returns true if two object has the same value
+	 */
+	public static boolean isEqual(final Object valueOne, final Object valueTwo) {
+		if (hasValidValue(valueOne) == false && hasValidValue(valueTwo) == false) {
+			return true;
+		} else if ((valueOne == null && valueTwo != null) || (valueOne != null && valueTwo == null)) {
+			return false;
+		} else if (valueOne.getClass() == String.class && valueTwo.getClass() == String.class) {
+			return valueOne.toString().trim().equalsIgnoreCase(valueTwo.toString().trim());
+		} else if (isNumber(valueOne.toString()) && isNumber(valueTwo.toString())) {
+			return toDecimalNumber(valueOne.toString()).equals(toDecimalNumber(valueTwo.toString()));
+		} else if (valueOne.getClass() == valueTwo.getClass()) {
+			return valueOne.toString().equals(valueTwo.toString());
+		}
+		return false;
+	}
 
 }
